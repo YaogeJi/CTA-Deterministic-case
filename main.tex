@@ -1,0 +1,541 @@
+\documentclass{article}
+% \usepackage{icml2020}
+\usepackage{amsmath}
+\usepackage{bm}
+\usepackage{ntheorem}
+\usepackage{lipsum}
+\usepackage[utf8]{inputenc} 
+\usepackage[T1]{fontenc}   
+\usepackage{hyperref}       
+\usepackage{url}     
+\usepackage{natbib}
+\bibliographystyle{unsrt}  
+\usepackage{booktabs}      
+\usepackage{amsfonts}     
+\usepackage{nicefrac}   
+\usepackage{microtype}     
+\usepackage{lipsum}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\DeclareMathOperator*{\minimize}{minimize}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage[toc,page]{appendix}
+\setcounter{MaxMatrixCols}{10}
+\theoremstyle{break}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{acknowledgement}[theorem]{Acknowledgement}
+\newtheorem{definition}{Definition}
+
+\newtheorem{axiom}[theorem]{Axiom}
+\newtheorem{case}[theorem]{Case}
+\newtheorem{claim}[theorem]{Claim}
+\newtheorem{conclusion}[theorem]{Conclusion}
+\newtheorem{condition}[theorem]{Condition}
+\newtheorem{conjecture}[theorem]{Conjecture}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{criterion}[theorem]{Criterion}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{exercise}[theorem]{Exercise}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{notation}[theorem]{Notation}
+\newtheorem{problem}[theorem]{Problem}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem*{remark}{Remark}
+\newtheorem{solution}[theorem]{Solution}
+\newtheorem{summary}[theorem]{Summary}
+\newenvironment{proof}[1][Proof]{\noindent\textbf{#1.} }{\ \rule{0.5em}{0.5em}}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\newtheorem{assumption}{Assumption}
+\newcommand{\T}{\theta}
+\DeclareMathOperator\supp{supp}
+\allowdisplaybreaks[4]
+
+
+\title{Distributed Gradient Descent Performance for High-Dimensional Regularized Lasso}
+
+\begin{document}
+\maketitle
+
+\section{Background and problem formulation}
+\subsection{The LASSO problem over a network}
+\label{sec:headings} 
+Consider the linear regression model
+       \begin{equation}
+           y=X\theta^{*}+w,
+       \end{equation}
+where $X\in \mathbb{R}^{N\times d}$ is a design matrix; each row of $X\in \mathbb{R}^{N\times d}$ represents the covariates associated with the $i^{th}$ observation; $\theta^*\in\mathbb{R}^d$ is the unknown parameter to estimate, assumed to be s-sparse (i.e. having only s non-zero entries); $w\in \mathbb{R}^N$ is the noise vector, and $y\in \mathbb{R}^N$ is the vectors of outputs. We make the following assumptions on the data matrix $X$.
+
+\begin{assumption}
+In Section 4 we assume the design matrix is a random matrix satisfies the following condition:
+\item \textbf{1.1}
+  $X\in \mathbb{R}^{N\times d}$ is a random matrix with i.i.d. rows drawn from $\mathcal{N}(0,\Sigma)$;
+\item \textbf{1.2}
+  The diagonal elements of $\frac{1}{N}X^TX$ are at most 1, that is $\max\limits_{j=1,\dots,d}\frac{\lVert Xe_j\rVert_2}{\sqrt{N}}\leq 1.$ 
+\item \textbf{1.3}
+ The covariance matrix $\Sigma$ satisfies
+\begin{equation}\label{re}
+    \sigma_{\min}\lVert\Delta\rVert_2^2\leq \lVert\Sigma^{\frac{1}{2}}\Delta\rVert_2^2\leq \sigma_{\max}\lVert\Delta\rVert_2, \qquad \forall \Delta \in \mathbb{R}^d.
+\end{equation}
+where $\sigma_{\max}$ (resp. $\sigma_{\min})$ is the largest (resp. smallest) eigenvalue of $\Sigma.$ 
+\end{assumption}
+
+\begin{assumption}
+In Section 4 we assume the noise is a random vector satisfies 
+ $w\sim \mathcal{N}(0,\sigma^2I_{N\times N}).$
+\end{assumption}
+
+
+
+We consider a network of $m$ agents, modeled as an undirected graph $\mathcal{G}=(\mathcal{V},\mathcal{E}),$ where $\mathcal{V}=(1,\dots,m)$ is the set of agents, and $\mathcal{E}$ is the set of the edges; $(i,j)\in\mathcal{E}$ if and only if there is a communication link between agent $i$ and agent $j.$ We make the following standard assumption on the graph connectivity.
+\begin{assumption}
+  The graph $\mathcal{G}$ is connected.
+\end{assumption}
+
+Each agent $i$ owns some of the data $(X,y),$ specifically $(X_i,y_i),$ with $X_i\in\mathbb{R}^{n\times d}, y_i\in\mathbb{R}^n.$ Agents aim at cooperatively solving the following LASSO problem over the network $\mathcal{G}:$
+
+
+\begin{equation}\label{original problem}
+    \minimize\limits_{\theta\in\mathbb{R}^d}\frac{1}{m}\sum\limits_{i=1}^m\bigg( \underbrace{\frac{1}{2n}\lVert y_i-X_i\theta\rVert_2^2}_{\triangleq f_i}+\lambda\lVert\theta\rVert_1\bigg).
+\end{equation}
+
+
+
+
+
+ 
+
+\subsection{The Prox-DGD Algorithm}
+Each agent $i$ updates its local copy $\theta_i\in\mathbb{R}^d$
+ by first combining the average of its neighbors' with a local gradient descent step, and then doing the proximal mapping
+\begin{equation}\label{Each agent DGD}
+    \theta^t_i=\text{prox}_{\gamma\frac{\lambda}{m}\lVert\cdot\rVert_1}\bigg\{\sum\limits_{j=1}^m w_{i j}\theta_j^t-\gamma\nabla f_i(\theta_i^t)\bigg\},
+\end{equation}
+where $\mathbb{R}\ni x\mapsto \text{prox}_{h}(x)\in \mathbb{R}$ is the proximal operator defined as
+\begin{equation}\label{proximal}
+    \text{prox}_{h}(x)\triangleq \underset{z\in\mathbb{R}}{\text{argmin}}\bigg\{\frac{1}{2}\lVert x-z\rVert^2+h(z)\bigg\};
+\end{equation}
+notice that if $h(z)=\frac{\lambda}{m}\lVert z\rVert_1,$ then $\text{prox}_{h}(x)=\mathcal{S}_{\frac{\lambda}{m}}(z)\triangleq\text{sign}(z)(\lvert z\rvert-\frac{\lambda}{m});$ 
+when the argument of the proximal operator is a vector as in (\ref{Each agent DGD}), we mean (\ref{proximal}) applied component wise; where $w_{i j}$ are nonnegeative weight satisfies Assumption 4 below;
+and $\gamma\in(0,1)$ is the stepsize.
+\begin{assumption}
+The weight matrix $W=(w_{i j})_{i,j=1}^m $ is compliant with $\mathcal{G},$ that is, there exists a scalar $\kappa>0 $ such that,
+\item \textbf{4.1}
+    $w_{ii}>0, \forall i\in [m];$ 
+\item \textbf{4.2}
+    $w_{i j}>0,$ if $(j,i)\in \mathcal{G};$ and  $w_{i j}=0$ otherwise;
+\item \textbf{4.3}
+    $W$ is doubly stochastic:  $1^{T}W=1^{T}$ and $W1=1.$
+
+\begin{remark}
+Notice that a direct consequence of Assumption 3 and Assumption 4 is that
+\begin{equation}
+    \rho\triangleq\lambda_{\max}\bigg(W-\frac{1}{m}1_m1_m^T\bigg)<1.
+\end{equation}
+\end{remark}
+\end{assumption}
+
+
+
+It's convenient to rewrite (\ref{Each agent DGD}) in vector/matrix form. To do so, we introduce the following quantities:
+
+\begin{equation}\label{notation 1}
+    \T\triangleq\begin{bmatrix}
+\theta_1\\
+\vdots\\
+\theta_m
+\end{bmatrix}\in\mathbb{R}^{m d}, \quad \nabla f(\T)\triangleq\begin{bmatrix}
+\nabla f_1(\theta_1)\\
+\vdots\\
+\nabla f_m(\theta_m)
+\end{bmatrix}\in\mathbb{R}^{m d},\end{equation}
+\begin{equation}
+X^{'}\triangleq\left[
+ \begin{matrix}
+   X_1 & 0 & \cdots & 0 \\
+   0 & X_2 & \cdots& 0 \\
+   0 & 0 & \cdots& X_m
+  \end{matrix}
+  \right], \quad\text{and}\quad \mathcal{W}=W\otimes I_d.
+\end{equation}
+
+Consistently, we define at iteration $t$
+
+\begin{equation}\label{notation 2}
+    \T^t\triangleq\begin{bmatrix}
+\theta_1^t\\
+\vdots\\
+\theta_m^t
+\end{bmatrix} \quad\text{and}\quad \nabla f(\T^{t})\triangleq\begin{bmatrix}
+\nabla f_1(\theta_1^t)\\
+\vdots\\
+\nabla f_m(\theta_m^t)
+\end{bmatrix}.
+\end{equation}
+
+Using (\ref{notation 1})-(\ref{notation 2}), the Prox DGD iteration (\ref{Each agent DGD}) can be rewritten as
+
+\begin{equation}\label{prox DGD CTA iterates}
+    \T^t=\text{prox}_{\gamma \frac{\lambda}{m}\lVert\cdot\rVert_1}[ \mathcal{W}\T^{t-1}-\gamma\nabla f(\T^{t-1})].
+\end{equation}
+
+Notice that (\ref{prox DGD CTA iterates}) can be interpreted as the proximal gradient algorithm applied to the following optimization problem in the augmented vector $\theta:$
+\begin{align}\label{Change problem}
+    \hat{\T}&=\underset{\T\in\mathbb{R}^{m d}}{\text{argmin}} \text{ } F(\T)\notag\\
+    &\triangleq\underbrace{\frac{1}{2N}\lVert y-X^{'}\theta\rVert^2_2+\frac{1}{2\gamma}\lVert\T\rVert_{I-W}^2}_{\triangleq \ell}+\underbrace{\frac{\lambda}{m}\lVert\theta\rVert_1}_{\triangleq g},
+\end{align}
+
+where $\lVert\T\rVert_{I-W}^2=\T^T(\mathcal{I}-\mathcal{W})\T.$ 
+
+We aim to analyze the convergence of the prediction error $\frac{\lVert X^{'}(\T^t-\T^*)\rVert_2^2}{N}.$ Using
+\begin{equation}
+    X^{'}(\T^t-1_{m}\otimes\T^*)=X^{'}(\T^t-\hat{\T})+X^{'}(\hat{\T}-1_{m}\otimes\T^*),
+\end{equation}
+we split the prediction error according to
+
+\begin{align}
+    &\frac{\lVert X^{'}(\T^t-1_{m}\otimes\T^*)\rVert^2 }{N}\\
+    &\leq\underbrace{\frac{\lVert X^{'}(\hat{\T}-1_{m}\otimes\T^*)\rVert^2}{N}}_{\text{statistical  error}}+\underbrace{\frac{\lVert X^{'}(\T^t-\hat{\T})\rVert^2}{N}}_{\text{optimization  error}}.
+\end{align}
+The first term can be interpreted as the prediction error associated with a solution of (\ref{Change problem}) while the second term represents the optimization error at iteration $t.$ We analyze the statistical and optimization errors separately in Section 2 and Section 3, respectively. We consider linear Gaussian regression model in Section 4.
+
+In Section 2, we show that with the help of the network as well as centralized Lasso statistical guarantees (range for $\lambda$), one can achieve centralized statistical accuracy i.e. $\frac{\lVert X^{'}(\hat{\T}-1_m\otimes\T^*)\rVert^2}{N}=O(\lambda^2 s).$
+
+In Section 3, our analysis allows $\T^t$  converges to a limit $\T^{\infty}$ such that
+\begin{equation}
+     \frac{\lVert X^{'}(\T^{\infty}-1_{m}\otimes\T^*)\rVert^2 }{N}=o\bigg(\frac{\lVert X^{'}(\hat{\T}-1_{m}\otimes\T^*)\rVert^2}{N}\bigg).
+\end{equation}
+This is the best we can hope for the distributed algorithm in statistical sense, achieving linear convergence up to a solution within the statistical error ball.
+
+In Section 4, we apply the deterministic results from Section 2 and Section 3 to linear Gaussian regression model; we inject randomness to both design matrix and noise vector.
+\section{Bounds on Distributed LASSO Prediction Error}
+In this section, first in subsection 2.1 we derive a restricted eigenvalue condition which incorporates the network information and proves to be very useful in estimating the prediction error bound in the distributed setting. We compare the classical restricted eigenvalue condition with ours and point out the necessity of the new notion of restricted eigenvalue condition in the distributed setting.
+
+Then in subsection 2.2 we derive a deterministic prediction bound under the new notion of restricted eigenvalue condition. We demonstrate that our bound is tighter compared with the classical lasso results applied to the distributed case without incorporating the network information.
+\subsection{Average Restricted Eigenvalue Condition }
+
+As is well known, it's impossible to  guarantee strong convexity of the problem (\ref{original problem}) in the high-dimensional setting. See \cite{agarwal2011fast}, \cite{Ras} and the references there in for the notions of Restricted Strong Convexity and Restricted Eigenvalue condition. All of these conditions involve that the restricted eigenvalues of matrix $\frac{X^{'T}X^{'}}{N}$ are lower bounded over a cone in $\mathbb{R}^{md}.$
+ 
+Recall the cone definition in  \cite{Ras}: for a constant $\alpha>1$ let us define the set
+\begin{equation}
+    \mathbb{C}_{\alpha}(S)\triangleq\{\Delta\in\mathbb{R}^{md}\text{ }|\text{ }\lVert (\Delta)_{S^c}\rVert_1\leq\alpha\lVert (\Delta)_{S}\rVert_1\};
+\end{equation}
+where $S=\supp\{1_m\otimes\T^*\}.$
+
+Also recall that the restricted eigenvalue (RE) condition in \cite{Ras}:
+\begin{definition}
+  The matrix $X^{'}$ satisfies the restricted eigenvalue 
+ (RE) condition over $S$ with parameters $(\sigma_c,\alpha)$ if 
+\begin{equation}\label{AVE}
+    \frac{1}{N}\lVert X^{'}\Delta\rVert_2^2\geq \sigma_c\lVert\Delta\rVert_2^2\qquad \forall \Delta\in\mathbb{C}_{\alpha}(S).
+\end{equation}
+\end{definition}
+
+In the distributed setting, we require a condition that is closely related to the RE condition in the centralized case; however we put emphasis on the the projection onto the consensus space vector $\T_{\text{av}}$ instead of the whole stack vector $\T;$ namely the restricted eigenvalues of matrix $\frac{X^{T}X^{}}{N}$ are lower bounded over a cone related to consensus vector in $\mathbb{R}^{d}.$
+ 
+ For a constant $\alpha>1,\gamma\in(0,1),$ let us define the set
+\begin{equation}
+    \mathbb{C}_{\alpha,\gamma}(S)\triangleq\{\Delta_{\text{av}}\in\mathbb{R}^d\text{ }|\text{ }\lVert (\Delta_{\text{av}})_{S^c}\rVert_1\leq\alpha\lVert (\Delta_{\text{av}})_{S}\rVert_1+\frac{N}{\lVert w^TX\rVert_{\infty}} h(\gamma,\lVert\Delta_{\perp}\rVert_2)\};
+\end{equation}
+where $S=\supp\{\T^*\},$ and $h(\gamma,\lVert\Delta_{\perp}\rVert_2)$ is a quadratic function of $\lVert\Delta_{\perp}\rVert_2.$ $h(\gamma,\lVert\Delta_{\perp}\rVert_2)$ is a perturbation incurred by the orthogonal component;  it can be upper bound up to statistical precision by tuning the parameter $\gamma.$ 
+
+Later we derive two cones for the Lagrangian and Projected distributed lasso in Lemma \ref{proximal nu average sparsity} and Lemma .. respectively. Compare two cones we notice that the sparsity patterns for $\hat{\nu}_{\text{av}}$ are similar; the difference only lies in that the quadratic functions h are different; even though h are not the same, they have similar structure: both with a negative quadratic term involving gamma.
+\begin{definition}
+  The matrix $X^{'}$ satisfies the average restricted eigenvalue 
+ (ARE) condition over $S$ with parameters $(\sigma_d,\alpha,\gamma)$ if 
+\begin{equation}\label{AVE}
+    \frac{1}{N}\lVert X\Delta_{\text{av}}\rVert_2^2\geq \sigma_d\lVert\Delta_{\text{av}}\rVert_2^2\qquad \forall \Delta_{\text{av}}\in\mathbb{C}_{\alpha,\gamma}(S).
+\end{equation}
+\end{definition}
+
+Note that the ARE condition is different with RE condition in the literature \cite{Ras}, \cite{Bickel_2009} and references there in. The difference lies in that the cone $\mathbb{C}_{\alpha,\gamma}(S)$ depends on two parameters; the vector is the projection of $\Delta\in\mathbb{R}^{m d}$ onto to the consensus space $\Delta_{
+\text{av}}\in\mathbb{R}^d.$  Later when the deterministic results are applied to the statistical model, we demonstrate  $\sigma_d$ can be chosen as a constant as long as $N$ is sufficiently large enough; while the parameter $\sigma_c$ related to the RE condition is very small and out of control.
+
+Next, let us derive a cone result for the $\hat{\nu}_{\text{av}}.$
+\begin{lemma}\label{proximal nu average sparsity}
+Under assumptions 3, 4 and 
+choose $\lambda$ to satisfy
+  \begin{equation}\label{distributed lambda}
+      \{\frac{4}{N}\lVert X^T w\rVert_{\infty}\leq \lambda\}; 
+  \end{equation}
+ in addition suppose $\gamma$ to satisfy 
+\begin{align}\label{proximal deterministic gamma}
+    \gamma&\leq \frac{m(1-\rho)}{4\kappa_{\max}(\delta-1)};
+\end{align}
+then we have $\hat{\nu}_{\text{av}}$ lies in the following cone:
+
+\begin{equation}\label{nu ave sparsity}
+    \mathbb{C}_{3,\gamma}(S)=\bigg\{\Delta_{
+    \text{av}}\in\mathbb{R}^d\text{ }|\text{ }\lVert(\Delta_{\text{av}})_{S^c}\rVert_1\leq 3\lVert(\Delta_{\text{av}})_{S}\rVert_1+\frac{N}{\lVert w^TX\rVert_{\infty}} h_{1}(\gamma,\lVert\Delta_{\perp}\rVert_2)\bigg\};
+\end{equation}
+where $h_{1}(\gamma,\lVert\Delta_{\perp}\rVert_2)$ is defined as 
+\begin{align}\label{h 1}
+  &h_{1}(\gamma,\lVert\Delta_{\perp}\rVert_2)\\
+  =& \bigg[\frac{\kappa_{\max}(\delta-1)}{m}-\frac{1-\rho}{4\gamma}\bigg]\lVert\Delta_{\perp}\rVert_2^2+(\frac{\lambda}{2}+\max\limits_{1\leq i\leq m}\lVert w_i^T X_i\rVert_{\infty}\frac{1}{n})\frac{\sum\limits_{i=1}^m\sqrt{d}\lVert\Delta_{\perp i}\rVert_2}{m};
+\end{align}
+$\delta>1$ is a constant, $S=\supp\{\T^*\},$ $S^c=[m]\setminus S,$ and $\kappa_{\max}=\max\limits_{1\leq i\leq m}\lambda_{\max}\bigg(\frac{X_i^T X_i}{n}\bigg).$
+\end{lemma}
+\begin{remark}
+This lemma characterizes the sparsity information of the consensus  vector $\hat{\nu}_{
+\text{av}};$ 
+we observe that when the network parameter $\gamma$ is small $\gamma=O(1/\kappa_{\max})$, $h_{\max}$ can be controlled very small. This indicates the network  influences the sparse pattern of the distributed lasso error along the consensual space.
+\end{remark}
+\begin{remark}
+If we apply the existing LASSO cone result to the Distributed LASSO (\ref{Change problem}), we have the following argument: Choose $\lambda$ to satisfy 
+\begin{equation}\label{existing lambda}
+\lVert\frac{X^{'T} w}{N}\rVert_{\infty}\leq\frac{\lambda}{m}\Leftrightarrow \max\limits_{1\leq i\leq m}\lVert\frac{X_i^T w_i}{n}\rVert_{\infty}\leq\lambda,
+\end{equation} then we have:
+\begin{equation}\label{existing cone}
+    \lVert\hat{\nu}_{S^c}\rVert_1\leq 3\lVert\hat{\nu}_{S}\rVert_1,
+\end{equation}
+where $ S=\supp\{1_m\otimes\T^*\};$ $S^c=[m d]\setminus S.$ 
+Our sparsity result (\ref{nu ave sparsity}) is essentially different with (\ref{existing cone}) in that the condition on $\lambda$ (\ref{distributed lambda}) is much milder than (\ref{existing lambda}); also our sparsity result is w.r.t the average distributed lasso error instead of the distributed lasso error.
+\end{remark}
+\begin{remark}
+If all the functions $f_i$'s are the same, then we have a consensual solution; this recovers the centralized lasso (\ref{original problem}); the solution to problem (\ref{original problem}) lies in the following cone:
+Choose $\lambda$ to satisfy 
+\begin{equation}\label{centralized lambda}
+\lVert\frac{X^{T} w}{N}\rVert_{\infty}\leq\lambda
+\end{equation} then we have:
+\begin{equation}\label{centralized cone}
+    \lVert\hat{\nu}_{S^c}\rVert_1\leq 3\lVert\hat{\nu}_{S}\rVert_1,
+\end{equation}
+where $S=\supp\{\T^*\}.$ Our cone condition (\ref{nu ave sparsity}) is similar to the centralized one (\ref{centralized cone}) in the sense that along the consensus space the sparse behavior of $\hat{\nu}_{\text{av}}$ is similar to $\hat{\nu}$ in centralized setting; besides, the condition on $\lambda$ (\ref{distributed lambda}) (\ref{centralized lambda}) are of the same order; the difference lies in the existence of the perturbation incurred by the orthogonal component; so we have an additional $h_{\max}$ term in the expression of cone.
+\end{remark}
+
+
+
+
+
+
+
+\subsection{Bounds on Prediction Error}
+
+In this section, with the sparsity information of $\hat{\nu}_{\text{av}}$ in hand, we develop some theoretical guarantees on the prediction error $\frac{\lVert X^{'}\hat{\nu}\rVert^2}{N}.$
+
+First recall the existing prediction error result Theorem 11.2 in \cite{10.5555/2834535} for centralized Lagrangian lasso; if we apply it directly to the distributed lasso problem, we  have the following argument.
+
+Suppose $\frac{\lambda}{m}\geq \frac{2}{N}\lVert X^{'T}w\rVert_{\infty},$ in addition suppose the design matrix $ X^{'}$ satisfies $\sigma_{\text{c}}$ RE condition over $\mathbb{C}(S,3),$ and $1_{m}\otimes\T^*$ is supported on the subset $S,$ then we have
+\begin{equation}
+   \frac{\lVert X^{'}(\hat{\T}-1_{m}\otimes\T^*)\rVert^2}{N}\leq \frac{144}{\sigma_{\text{c}} m^2}\lambda^2ms;
+\end{equation}
+where $\mathbb{C}(S,3)\triangleq\{\Delta\in\mathbb{R}^{m d}\text{ }|\text{ }\lVert\Delta_{S^c}\rVert_1\leq 3\lVert\Delta_{S}\rVert_1\}.$
+
+That is, the prediction error is of the order
+\begin{align}
+    \frac{\lVert X^{'}\hat{\nu}\rVert^2}{N}
+    =&O\bigg(\frac{\lVert X^{'T}w\rVert_{\infty}^2ms}{\sigma_{\text{c}}N^2}\bigg)\notag\\
+    =&O\bigg(\frac{\bigg[\max\limits_{1\leq i\leq m}\lVert X_i^T w_i\rVert_{\infty}\bigg]^2s}{\sigma_{\text{c}}Nn}\bigg).
+\end{align}
+
+This bound is loose in the sense that it neglects the impact of the network. Later in section 4 when we apply this results to the Gaussian Linear Model, we can demonstrate that $\sigma_{\text{c}}$ is arbitrary to 0 so that statistical prediction error bound is ruined. Instead we present a result which can achieve much tighter bound by incorporating the network influence and assuming a $\sigma_{\text{d}}$ ARE condition. We pointed out that later in the application to the statistical model, $\sigma_{\text{d}}$ can be chosen as a constant when the global sample size $N$ is large enough.
+
+Now we present a tighter result involving  prediction error in the distributed lasso.
+\begin{theorem}\label{deterministic result}
+Consider the Lagrangian Distributed LASSO problem (\ref{Change problem}) with regularizer $\lambda$ and $\gamma.$ Under assumptions 3, 4,
+  if $\T^*$ is supported on $S,$ and the design matrix $X^{'}$ satisfies the $\sigma_d$-ARE condition (\ref{AVE}) over the cone $\mathbb{C}_{3,\gamma}(S)$ (\ref{nu ave sparsity}); in addition if $\lambda$ satisfies
+  \begin{equation}\label{event lambda}
+      \{\frac{4}{N}\lvert X^T w\rvert_{\infty}\leq \lambda\};
+  \end{equation}
+  and at the same time choose $\gamma$ satisfies (\ref{proximal deterministic gamma}) i.e.
+\begin{align*}
+      \gamma&\leq \frac{m(1-\rho)}{4\kappa_{\max}(\delta-1)};
+\end{align*}
+then the solution of (\ref{Change problem}) satisfies
+\begin{equation}\label{oracle}
+   \frac{\lVert X^{'}\hat{\nu}\rVert_2^2}{N}\leq\frac{9\lambda^2s}{4\sigma_{\text{d}}\bigg(1-\frac{1}{\delta}\bigg)}+\frac{\bigg(\max\limits_{1\leq i\leq m}\lVert w_i^TX_i\rVert_{\infty}\cdot \frac{2}{n}+\lambda\bigg)^2d}{4\bigg(m\cdot\frac{1-\rho}{2\gamma}-2\kappa_{\max}(\delta-1)\bigg)},
+\end{equation}
+where $\rho=\lambda_{\max}(I-W),$ $s=\#S,$ $\kappa_{\max}=\max\limits_{1\leq i\leq m}\lambda_{\max}\bigg(\frac{X_i^T X_i}{n}\bigg),$ and $\delta>1$ is an universal constant.
+ 
+ \end{theorem}
+
+\begin{remark}
+Notice that the additional error term in (\ref{oracle}) compared to the centralized lasso is actually $h_{1\max}$ defined in (\ref{hmax}).
+By controlling the value of $\gamma,$
+we inject the network information into the network. That is, if we choose $\gamma$ to satisfies
+\begin{equation}\label{proximal deterministic gamma final}
+    \gamma\leq \min\bigg\{\frac{m(1-\rho)}{4\kappa_{\max}(\delta-1)}, \frac{18m(1-\rho)\lambda^2s}{4\sigma_d\bigg(1-\frac{1}{\delta}\bigg)\bigg(\max\limits_{1\leq i\leq m}\lVert w_i^TX_i\rVert_{\infty}\cdot \frac{2}{n}+\lambda\bigg)^2d+72\kappa_{\max}(\delta-1)\lambda^2s}\bigg\};
+\end{equation} 
+    then we have
+    \begin{equation}
+        \frac{\lVert X^{'}\hat{\nu}\rVert_2^2}{N}\leq\frac{9\lambda^2s}{2\sigma_{\text{d}}\bigg(1-\frac{1}{\delta}\bigg)}=O\bigg(\frac{\lambda^2s}{\sigma_d}\bigg).
+    \end{equation}
+That means under the same statistical setting (range for $\lambda$) as the centralized one, we achieve the centralized prediction LASSO error by making use of the network effect:
+\begin{equation}
+     \frac{\lVert X^{'}\hat{\nu}\rVert_2^2}{N}\leq\frac{9\lambda^2s}{2\sigma_{\text{d}}\bigg(1-\frac{1}{\delta}\bigg)}= O\bigg(\frac{\lambda^2s}{\sigma_d}\bigg)=O\bigg(\frac{\lVert X^{T}w\rVert_{\infty}^2s}{\sigma_d N^2}\bigg).
+\end{equation}
+\end{remark}
+
+\appendix
+\section*{Supplementary Materials}
+\renewcommand{\thesubsection}{\Alph{subsection}}
+
+\subsection{Proof of Lemma \ref{proximal nu average sparsity}}
+
+
+
+\begin{proof}
+The key idea of this proof lies in the decomposition of the lasso vector $\hat{\nu}=1_m\otimes\hat{\nu}_{\text{av}}+\hat{\nu}_{\perp}.$ For the projection onto the consensus space $\hat{\nu}_{
+\text{av}},$ we treat it as the centralized case; For the orthogonal part $\hat{\nu}_{\perp},$ we compensate it by the network term.
+
+We start with the optimality condition. Suppose $\hat{\mathbf{\T}}$ is the optimal solution of problem (\ref{Change problem}). By the Moreau-Rockafellar theorem, there exist $v=[v_1^T, \dots, v_m^T]^T\in\mathbb{R}^{m d}$ in the subdifferential of $\frac{\lambda}{m}\lVert\cdot\rVert+\frac{1}{2\gamma}\lVert\cdot\rVert_{I-W}^2$ at $\hat{\theta}$
+ such that 
+ $$\left[\begin{matrix}
+ \frac{1}{N}X_1^T(X_1\hat{\theta}_1-y_1)\\
+ \vdots\\
+ \frac{1}{N}X_m^T(X_m\hat{\theta}_m-y_m)
+\end{matrix}\right]+\left[\begin{matrix} v_1\\ \vdots\\v_m
+ \end{matrix}\right]=0.$$ $\forall\T$ feasible for the problem (\ref{Change problem}), we have
+
+\begin{align}\label{noparametric oracle}
+    &\frac{\lVert X^{'}\hat{\theta}-X^{'}1_m\otimes \T^*\rVert_2^2}{N}-\frac{\lVert X^{'}\T-X^{'}1_m\otimes \T^*\rVert_2^2}{N}\notag\\
+    =&\frac{\sum\limits_{i=1}^m\lVert X_i\hat{\theta}_i-X_i\T^*\rVert_2^2}{N}-\frac{\sum\limits_{i=1}^m\lVert X_i\theta_i-X_i\T^*\rVert_2^2}{N}\notag\\
+    =&\frac{2}{N}\sum\limits_{i=1}^m(\hat{\theta}_i-\theta_i)^TX_i^T(X_i\hat{\theta}_i-X_i\T^*)-\frac{\sum\limits_{i=1}^m\lVert X_i\theta_i-X_i\hat{\theta}_i\rVert_2^2}{N}\notag\\
+    =&\frac{2}{N}\sum\limits_{i=1}^m(\hat{\theta}_i-\theta_i)^TX_i^T(X_i\hat{\theta}_i-X_i\T^*)-\frac{\sum\limits_{i=1}^m\lVert X_i\theta_i-X_i\hat{\theta}_i\rVert_2^2}{N}\notag\\
+    +&\sum\limits_{i=1}^m(\theta_i-\hat{\theta}_i)^T(\frac{1}{N}X_i^T(X_i\hat{\theta}_i-y_i)+v_i)\notag\\
+    =&\frac{2}{N}\sum\limits_{i=1}^m (y_i-X_i\T^*)^TX_i(\hat{\theta}_i-\theta_i)-\frac{\sum\limits_{i=1}^m\lVert X_i\theta_i-X_i\hat{\theta}_i\rVert_2^2}{N}+\sum\limits_{i=1}^m(\theta_i-\hat{\theta}_i)^T  v_i\notag\\
+    \leq& \frac{2}{N}\sum\limits_{i=1}^m (y_i-X_i\T^*)^TX_i(\hat{\theta}_i-\theta_i)-\frac{\sum\limits_{i=1}^m\lVert X_i(\hat{\theta}_i-\theta_i)\rVert_2^2}{N}\notag\\
+    +&\frac{\lambda}{m}\sum\limits_{i=1}^m(\lVert\theta_i\rVert_1-\lVert\hat{\theta}_i\rVert_1)+\frac{1}{2\gamma}(\lVert\T\rVert_{I-W}^2-\lVert\hat{\T}\rVert_{I-W}^2);\notag\\
+\end{align}
+
+
+Notice that $\T^*$ is also feasible for the problem (\ref{Change problem}); if we take $\theta=\theta^*,$ accordingly we have 
+
+\begin{align}\label{optimality condition}
+    &\frac{\lVert X^{'}(\hat{\theta}-1_{m}\otimes\T^*)\rVert_2^2}{N}\\
+    =&\quad\frac{\sum\limits_{i=1}^m\lVert X_i(\hat{\theta}_i-\theta^*)\rVert_2^2}{N}\\
+    \leq &\frac{2}{N}\sum\limits_{i=1}^m w_i^TX_i(\hat{\theta}_i-\theta^*)-\frac{\sum\limits_{i=1}^m\lVert X_i(\hat{\theta}_i-\theta^*)\rVert_2^2}{N}\\
+    +&\frac{\lambda}{m}\sum\limits_{i=1}^m(\lVert\theta^*\rVert-\lVert\hat{\theta}_i\rVert)+\frac{1}{2\gamma}(\lVert1_{m}\otimes\T^*\rVert_{I-W}^2-\lVert\hat{\T}\rVert_{I-W}^2)\\
+    =&\frac{2}{N}\sum\limits_{i=1}^m w_i^TX_i\hat{\nu}_i+\frac{\lambda}{m}\sum\limits_{i=1}^m(\lVert\hat{\nu}_{i S}\rVert-\lVert\hat{\nu}_{i S^C}\rVert)\\
+    +&\frac{1}{2\gamma}(\lVert1_{m}\otimes\T^*\rVert_{I-W}^2-\lVert\hat{\T}\rVert_{I-W}^2)-\frac{\sum\limits_{i=1}^m\lVert X_i\hat{\nu}_i\rVert_2^2}{N}\notag\\
+    =&\frac{2}{N}\sum\limits_{i=1}^m w_i^TX_i(\hat{\nu}_{\text{av}}+\hat{\nu}_{\perp i})+\frac{\lambda}{m}\sum\limits_{i=1}^m(\lVert(\hat{\nu}_{\text{av}})_{S}+\hat{\nu}_{\perp i S}\rVert-\lVert(\hat{\nu}_{\text{av}})_{S^C}+\hat{\nu}_{\perp i S^c}\rVert)\\
+    +&\frac{1}{2\gamma}(\lVert1_{m}\otimes\T^*\rVert_{I-W}^2-\lVert\hat{\T}\rVert_{I-W}^2)-\frac{\sum\limits_{i=1}^m\lVert X_i\hat{\nu}_i\rVert_2^2}{N}\notag\\
+    \end{align}
+    
+    where in the last step we decompose $\hat{\nu}_i=\hat{\nu}_{
+    \text{av}}+\hat{\nu}_{\perp i},$ for $\hat{\nu}_{\text{av}}$ we treat it as the centralized lasso error and for $\hat{\nu}_{\perp}$ we combine it with the network regularizer.
+    \begin{align}
+    &\frac{2}{N}\sum\limits_{i=1}^m w_i^TX_i\hat{\nu}_{\text{av}}+\frac{\lambda}{m}\sum\limits_{i=1}^m(\lVert(\hat{\nu}_{\text{av}})_{S}+\hat{\nu}_{\perp i S}\rVert-\lVert(\hat{\nu}_{\text{av}})_{S^C}+\hat{\nu}_{\perp i S^c}\rVert)\notag\\
+    -&\frac{\sum\limits_{i=1}^m\lVert X_i\hat{\nu}_i\rVert_2^2}{N}
+    +\frac{2}{N}\sum\limits_{i=1}^m w_i^TX_i\hat{\nu}_{\perp i}+\frac{1}{2\gamma}(\lVert1_{m}\otimes\T^*\rVert_{I-W}^2-\lVert\hat{\T}\rVert_{I-W}^2)\notag\\
+    =&\frac{2}{N}w^TX\hat{\nu}_{\text{av}}+\frac{\lambda}{m}\sum\limits_{i=1}^m(\lVert(\hat{\nu}_{\text{av}})_{S}\rVert_1-\lVert(\hat{\nu}_{\text{av}})_{S^C}\rVert_1)-\frac{\sum\limits_{i=1}^m\lVert X_i
+    \hat{\nu}_i\rVert_2^2}{N}\notag\\
+    +&\frac{\lambda}{m}\sum\limits_{i=1}^m\lVert\hat{\nu}_{\perp i}\rVert_1+\frac{2}{N}\sum\limits_{i=1}^m w_i^TX_i\hat{\nu}_{\perp i}-\frac{1}{2\gamma}(\hat{\nu}_{\perp}^T[(I-W)\otimes I_d]\hat{\nu}_{\perp})\notag;\\
+    \end{align}
+    For the noise term $w^TX\hat{\nu}_{\text{av}}$ and $\frac{2}{N}\sum\limits_{i=1}^m w_i^TX_i\hat{\nu}_{\perp i},$ we control it by Cauchy-Schwartz inequality:
+    \begin{align}
+    &\frac{2}{N}w^TX\hat{\nu}_{\text{av}}+\frac{\lambda}{m}\sum\limits_{i=1}^m(\lVert(\hat{\nu}_{\text{av}})_{S}\rVert_1-\lVert(\hat{\nu}_{\text{av}})_{S^C}\rVert_1)-\frac{\sum\limits_{i=1}^m\lVert X_i
+    \hat{\nu}_i\rVert_2^2}{N}\notag\\
+    +&\frac{\lambda}{m}\sum\limits_{i=1}^m\lVert\hat{\nu}_{\perp i}\rVert_1+\frac{2}{N}\sum\limits_{i=1}^m w_i^TX_i\hat{\nu}_{\perp i}-\frac{1}{2\gamma}(\hat{\nu}_{\perp}^T[(I-W)\otimes I_d]\hat{\nu}_{\perp})\notag\\
+    \leq & \frac{2}{N}\lVert w^TX\rVert_{\infty}\lVert\hat{\nu}_{\text{av}}\rVert_1+\frac{\lambda}{m}\sum\limits_{i=1}^m(\lVert(\hat{\nu}_{\text{av}})_{S}\rVert_1-\lVert(\hat{\nu}_{\text{av}})_{S^C}\rVert_1)-\frac{\sum\limits_{i=1}^m\lVert X_i
+    \hat{\nu}_i\rVert_2^2}{N}\notag\\
+    +&\frac{\lambda}{m}\sum\limits_{i=1}^m\lVert\hat{\nu}_{\perp i}\rVert_1+\max\limits_{1\leq i\leq m}\lVert w_i^T X_i\rVert_{\infty}\frac{2}{N}\sum\limits_{i=1}^m\lVert\hat{\nu}_{\perp i}\rVert_1-\frac{1}{2\gamma}(\hat{\nu}_{\perp}^T[(I-W)\otimes I_d]\hat{\nu}_{\perp})\notag\\
+    \leq &\frac{\lambda}{2}\lVert\hat{\nu}_{\text{av}}\rVert_1+\lambda(\lVert(\hat{\nu}_{\text{av}})_{S}\rVert_1-\lVert(\hat{\nu}_{\text{av}})_{S^C}\rVert_1)-\bigg(1-\frac{1}{\delta}\bigg)\frac{\sum\limits_{i=1}^m\lVert X_i\hat{\nu}_{\text{av}}\rVert_2^2}{N}\label{Young inequality}\\
+    +&(\delta-1)\frac{\sum\limits_{i=1}^m\lVert X_i\hat{\nu}_{\perp i}\rVert_2^2}{N}+\frac{\lambda}{m}\sum\limits_{i=1}^m\lVert\hat{\nu}_{\perp i}\rVert_1+\max\limits_{1\leq i\leq m}\lVert w_i^T X_i\rVert_{\infty}\frac{2}{N}\sum\limits_{i=1}^m\lVert\hat{\nu}_{\perp i}\rVert_1-\frac{1-\rho}{2\gamma}\sum\limits_{i=1}^m\lVert\hat{\nu}_{\perp i}\rVert_2^2\notag\\
+    \leq &\frac{3\lambda}{2}\lVert(\hat{\nu}_{\text{av}})_{S}\rVert_1-\frac{\lambda}{2}\lVert(\hat{\nu}_{\text{av}})_{S^C}\rVert_1-\bigg(1-\frac{1}{\delta}\bigg)\frac{\sum\limits_{i=1}^m\lVert X_i\hat{\nu}_{\text{av}}\rVert_2^2}{N}\notag\\
+    +&\bigg[\frac{2\kappa_{\max}(\delta-1)}{m}-\frac{1-\rho}{2\gamma}\bigg]\sum\limits_{i=1}^m\lVert\hat{\nu}_{\perp i}\rVert_2^2
+    +\bigg(\frac{\lambda}{m}+\max\limits_{1\leq i\leq m}\lVert w_i^T X_i\rVert_{\infty}\frac{2}{N}\bigg)\sum\limits_{i=1}^m\lVert\hat{\nu}_{\perp i}\rVert_1\\
+\end{align}
+where in (\ref{Young inequality}) we decompose the prediction error into the following by Young inequality:
+\begin{equation}
+    \frac{\sum\limits_{i=1}^m\lVert X_i
+    \hat{\nu}_i\rVert_2^2}{N} \geq\bigg(1-\frac{1}{\delta}\bigg)\frac{\sum\limits_{i=1}^m\lVert X_i\hat{\nu}_{\text{av}}\rVert_2^2}{N}-(\delta-1)\frac{\sum\limits_{i=1}^m\lVert X_i\hat{\nu}_{\perp i}\rVert_2^2}{N},
+\end{equation}
+and $\kappa_{\max}\triangleq\max\limits_{1\leq i\leq m}\lambda_{\max}\bigg(\frac{X_i^T X_i}{n}\bigg).$
+
+Now we have the prediction error $\frac{\lVert X^{'}\hat{\nu}\rVert_2^2}{N}$ is upper bounded by the following two parts:
+\begin{align}\label{intermedia step}
+    &\frac{\lVert X^{'}\hat{\nu}\rVert_2^2}{N}\notag\\
+    \leq &\underbrace{\bigg[\frac{2\kappa_{\max}(\delta-1)}{m}-\frac{1-\rho}{2\gamma}\bigg]\sum\limits_{i=1}^m\lVert\hat{\nu}_{\perp i}\rVert_2^2
+    +\bigg(\frac{\lambda}{m}+\max\limits_{1\leq i\leq m}\lVert w_i^T X_i\rVert_{\infty}\frac{2}{N}\bigg)\sum\limits_{i=1}^m\lVert\hat{\nu}_{\perp i}\rVert_1}_{\text{Part I}}\notag\\
+    +&\underbrace{\frac{3\lambda}{2}\lVert(\hat{\nu}_{\text{av}})_{S}\rVert_1-\frac{\lambda}{2}\lVert(\hat{\nu}_{\text{av}})_{S^C}\rVert_1-\bigg(1-\frac{1}{\delta}\bigg)\frac{\sum\limits_{i=1}^m\lVert X_i\hat{\nu}_{\text{av}}\rVert_2^2}{N}}_{\text{Part II}}\notag\\
+\end{align}
+
+Part I involves the error results from the orthogonal parts of the solution as well as the network effect; the error induced by the non consensus will be compensated by the effect of the network; given we have no sparsity in formation on the orthogonal part of the solution, we have
+\begin{align}\label{median step for next lemma}
+    \text{Part I}
+    \leq&\bigg[\frac{2\kappa_{\max}(\delta-1)}{m}-\frac{1-\rho}{2\gamma}\bigg]\sum\limits_{i=1}^m\lVert\hat{\nu}_{\perp i}\rVert_2^2\notag\\
+    +&(\frac{\lambda}{m}+\max\limits_{1\leq i\leq m}\lVert w_i^T X_i\rVert_{\infty}\frac{2}{N})\sum\limits_{i=1}^m\sqrt{d}\lVert\hat{\nu}_{\perp i}\rVert_2\notag\\
+    \triangleq&2h_1(\gamma,\lVert\hat{\nu}_{\perp}\rVert_2)\notag
+\end{align}
+one sufficient condition to control part I is to choose the tuning parameter $\gamma$ to satisfy the following condition:
+
+
+\begin{equation}\label{proximal gamma stat error}            
+             2\kappa_{\max}(\delta-1)-m\cdot\frac{1-\rho}{2\gamma}\leq 0.
+\end{equation}
+
+solve (\ref{proximal gamma stat error}) and we have the conditions for $\gamma:$
+\begin{align*}
+    \gamma&\leq \frac{m(1-\rho)}{4\kappa_{\max}(\delta-1)}.
+\end{align*}
+
+
+
+Part II involves the projection onto the consensus space, it mimics the behavior of the centralized case: $$\frac{3\lambda}{2}\lVert(\nu_{\text{av}})_S\rVert_1-\frac{\lambda}{2}\lVert(\nu_{\text{av}})_{S^C}\rVert_1-\bigg(1-\frac{1}{\delta}\bigg)\frac{\lVert X\nu_{\text{av}}\rVert_2^2}{N}$$
+
+Case I: If $\frac{3\lambda}{2}\lVert(\nu_{\text{av}})_{S}\rVert_1-\frac{\lambda}{2}\lVert(\nu_{\text{av}})_{S^c}\rVert_1<-2h_1(\gamma,\lVert\hat{\nu}_{\perp}\rVert_2), $ then we have
+\begin{equation*}
+    \frac{\lVert X^{'}\hat{\nu}\rVert_2^2}{N}\leq  -2h_1(\gamma,\lVert\hat{\nu}_{\perp}\rVert_2)-\bigg(1-\frac{1}{\delta}\bigg)\lVert X\hat{\nu}_{\text{av}}\rVert_N^2+2h_1(\gamma,\lVert\hat{\nu}_{\perp}\rVert_2)< 0;
+\end{equation*}
+this is a trivial case when $\hat{\theta}=1_m\otimes \T^*$.
+
+Case II: If $\frac{3\lambda}{2}\lVert(\hat{\nu}_{\text{av}})_{S}\rVert_1-\frac{\lambda}{2}\lVert(\hat{\nu}_{\text{av}})_{S^c}\rVert_1\geq-2h_1(\gamma,\lVert\hat{\nu}_{\perp}\rVert_2), $ then we have
+\begin{align}\label{nu_ave sparisty}
+    \lVert(\hat{\nu}_{\text{av}})_{S^c}\rVert_1&\leq 3\lVert(\hat{\nu}_{\text{av}})_{S}\rVert_1+\frac{4}{\lambda}h_1(\gamma,\lVert\hat{\nu}_{\perp}\rVert_2)\notag\\
+    &\leq3\lVert(\hat{\nu}_{\text{av}})_{S}\rVert_1+ \frac{N}{\lVert w^TX\rVert_{\infty}}h_1(\gamma,\lVert\hat{\nu}_{\perp}\rVert_2)\notag\\
+\end{align}
+\end{proof}
+\subsection{Proof of Theorem \ref{deterministic result}}
+
+\begin{proof}
+
+ By Lemma \ref{proximal nu average sparsity}, the consensus vector $\hat{\nu}_{\text{av}}$ belongs to the cone $\mathbb{C}(S,3,\gamma),$ so that ARE condition guarantees 
+ \begin{equation}
+     \lVert\hat{\nu}_{\text{av}}\rVert_2\leq\frac{\lVert X\hat{\nu}_{\text{av}}\rVert_2}{\sqrt{N\sigma_d}}.
+\end{equation}
+ 
+ On the other hand, we have the maximum value for the quadratic function $h_1(\gamma,\lVert\hat{\nu}_{\perp}\rVert_2),$
+where $h_{1\max}$ is defined as the following:
+
+
+
+
+\begin{align}\label{hmax}
+    h_{1\max}&\triangleq\frac{-\bigg(\max\limits_{1\leq i\leq m}\lVert w_i^TX_i\rVert_{\infty}\cdot \frac{2}{n}+\lambda\bigg)^2d}{8\bigg(2\kappa_{\max}(\delta-1)-m\cdot\frac{1-\rho}{2\gamma}\bigg)}
+    &=\frac{\bigg(\max\limits_{1\leq i\leq m}\lVert w_i^TX_i\rVert_{\infty}\cdot \frac{2}{n}+\lambda\bigg)^2d}{8\bigg(m\cdot\frac{1-\rho}{2\gamma}-2\kappa_{\max}(\delta-1)\bigg)};
+\end{align}
+Combine these with the inter median result (\ref{intermedia step}) from Theorem \ref{deterministic result} we have for prediction error $\frac{\lVert X^{'}\hat{\nu}\rVert_2^2}{N}:$
+\begin{align*}
+      \frac{\lVert X^{'}\hat{\nu}\rVert_2^2}{N}&\leq\frac{3\lambda\sqrt{s}\lVert(\hat{\nu}_{\text{av}})_{S}\rVert_2}{2}-\bigg(1-\frac{1}{\delta}\bigg)\lVert X\hat{\nu}_{\text{av}}\rVert_N^2+2h_{1}(\gamma,\lVert\hat{\nu}_{\perp}\rVert_2)\\
+      &\leq\frac{3\lambda\sqrt{s}\lVert\hat{\nu}_{\text{av}}\rVert_2}{2}-\bigg(1-\frac{1}{\delta}\bigg)\lVert X\hat{\nu}_{\text{av}}\rVert_N^2+2h_{\max}\\
+      &\leq \frac{3\lambda\sqrt{s}\lVert X\hat{\nu}_{\text{av}}\rVert_2}{2\sqrt{N\sigma}}-\bigg(1-\frac{1}{\delta}\bigg)\lVert X\hat{\nu}_{\text{av}}\rVert_N^2+2h_{\max}\\
+      &\leq \frac{9\lambda^2s}{4\sigma_{d}\bigg(1-\frac{1}{\delta}\bigg)}+2h_{\max}\\
+      &=\frac{9\lambda^2s}{4\sigma_d\bigg(1-\frac{1}{\delta}\bigg)}+\frac{\bigg(\max\limits_{1\leq i\leq m}\lVert w_i^TX_i\rVert_{\infty}\cdot \frac{2}{n}+\lambda\bigg)^2d}{4\bigg(m\cdot\frac{1-\rho}{2\gamma}-2\kappa_{\max}(\delta-1)\bigg)}.
+\end{align*}
+In addition to (\ref{proximal deterministic gamma}) if we enforce $\gamma$ to satisfies
+\begin{equation}
+    \frac{\bigg(\max\limits_{1\leq i\leq m}\lVert w_i^TX_i\rVert_{\infty}\cdot \frac{2}{n}+\lambda\bigg)^2d}{4\bigg(m\cdot\frac{1-\rho}{2\gamma}-2\kappa_{\max}(\delta-1)\bigg)}=\frac{9\lambda^2s}{4\sigma_d\bigg(1-\frac{1}{\delta}\bigg)};
+\end{equation}
+then we have the following condition for $\gamma:$
+\begin{equation*}
+   \gamma\leq \min\bigg\{\frac{m(1-\rho)}{4\kappa_{\max}(\delta-1)}, \frac{18m(1-\rho)\lambda^2s}{4\sigma_d\bigg(1-\frac{1}{\delta}\bigg)\bigg(\max\limits_{1\leq i\leq m}\lVert w_i^TX_i\rVert_{\infty}\cdot \frac{2}{n}+\lambda\bigg)^2d+72\kappa_{\max}(\delta-1)\lambda^2s}\bigg\}.
+\end{equation*}
+Then, we have for the prediction error
+\begin{equation*}
+     \frac{\lVert X^{'}\hat{\nu}\rVert_2^2}{N}\leq \frac{9\lambda^2s}{2\sigma_d\bigg(1-\frac{1}{\delta}\bigg)}.
+\end{equation*}
+\end{proof}
+
+
+
+\bibliography{references}
+
+
+
+
+
+\end{document}
